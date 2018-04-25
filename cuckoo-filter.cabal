@@ -1,0 +1,62 @@
+-- This file has been generated from package.yaml by hpack version 0.20.0.
+--
+-- see: https://github.com/sol/hpack
+--
+-- hash: 71578da218b8504f0a03741fec630012ae1c73f716aef69ab2eb3c4924c25d37
+
+name:           cuckoo-filter
+version:        0.1.0.0
+description:    Please see the README on Github at <https://github.com/githubuser/cuckoo-filter#readme>
+homepage:       https://github.com/githubuser/cuckoo-filter#readme
+bug-reports:    https://github.com/githubuser/cuckoo-filter/issues
+author:         Author name here
+maintainer:     example@example.com
+copyright:      2018 Author name here
+license:        BSD3
+license-file:   LICENSE
+build-type:     Simple
+cabal-version:  >= 1.10
+
+extra-source-files:
+    ChangeLog.md
+    README.md
+
+source-repository head
+  type: git
+  location: https://github.com/githubuser/cuckoo-filter
+
+library
+  hs-source-dirs:
+      src
+  build-depends:
+      base >=4.7 && <5
+  exposed-modules:
+      Lib
+  other-modules:
+      Paths_cuckoo_filter
+  default-language: Haskell2010
+
+executable cuckoo-filter-exe
+  main-is: Main.hs
+  hs-source-dirs:
+      app
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cuckoo-filter
+  other-modules:
+      Paths_cuckoo_filter
+  default-language: Haskell2010
+
+test-suite cuckoo-filter-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      test
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      base >=4.7 && <5
+    , cuckoo-filter
+  other-modules:
+      Paths_cuckoo_filter
+  default-language: Haskell2010
