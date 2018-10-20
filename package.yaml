@@ -21,9 +21,12 @@ description:         Please see the README on Github at <https://github.com/Chri
 
 dependencies:
 - base >= 4.7 && < 5
+- hashable
+- containers
 
 library:
   source-dirs: src
+  default-extensions: NamedFieldPuns
   exported-modules:
       Data.CuckooFilter
 
