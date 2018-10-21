@@ -30,13 +30,22 @@ makeSize n
     | n == 0 = Nothing
     | otherwise = Just . Size $ fromIntegral n
 
+class Index a where
+    toIndex :: a -> Int
+
 -- | An Index represents the keys into buckets
 newtype IndexA = IA Natural
     deriving (Show, Eq, Ord)
     deriving newtype Hashable
+instance Index IndexA where
+    toIndex (IA n) = fromIntegral n
+
 newtype IndexB = IB Natural
     deriving (Show, Eq, Ord)
     deriving newtype Hashable
+instance Index IndexB where
+    toIndex (IB n) = fromIntegral n
+
 -- | A FingerPrint is an 8 bit hash of a value
 newtype FingerPrint = FP Word8
     deriving (Show, Eq, Ord)
@@ -72,50 +81,38 @@ empty (Size s) = F {
     where
         numBuckets = s `div` 4
 
+-- | TODO add documentation outlining the algorithm in psuedocode
 insert :: (Hashable a) =>
     Filter a
-    -> [a]
+    -> a
     -> Filter a
-insert cfilt [] = cfilt
-insert cfilt vals = let
-    numBuckets = numBuckets cfilt
-    -- TODO make this prettier
-    fingerprints = (\x -> (primaryInde x numBuckets, makeFingerprint x)) <$> vals
-    in doWork maxNumKicks cfilt fingerprints
-    -- compute fingerprint of x
-    -- compute indexA of x
-    -- compute indexB of x = indexA `xor` hash fingerprint
-    --
-    -- try to insert into indexA, then indexB
-    -- if indexB fails
-    --     insert fingerprint, returning an old fingerprint (ofp)
-    --     compute indexO via indexB `xor` hash ofp
-    --     repeat until ticks are exhausted
-    --
-    --if ticks are exhausted, resize
-    --
+insert cfilt@(F {numBuckets}) val = let
+    idxA = primaryIndex val numBuckets
+    fp = makeFingerprint val
+    bkts = buckets cfilt
+    bucketA = bkts IM.! toIndex idxA
+    in case insertBucket fp bucketA of
+        Just bucketA' -> cfilt {buckets = IM.insert (toIndex idxA) bucketA bkts}
+        Nothing -> let
+            idxB = secondaryIndex fp numBuckets idxA
+            in bumpHash maxNumKicks cfilt idxB fp
     where
         (Size s) = size cfilt
-        maxNumKicks = floor $ 0.1 * s
+        maxNumKicks = floor $ 0.1 * fromIntegral s
 
         -- If the kick count is exhausted, the filter automatically resizes itself, then inserts the initial data. This
         -- is as expensive as you'd imagine, as it involves rehashing all of the indices
-        doWork :: Natural -> Filter a -> [(IndexA, FingerPrint)] -> Filter a
-        doWork 0 _ _ = insert (resize cfilt) vals
-        doWork remaingKicks cfilt' ((val, fp):xs) = let
+        bumpHash 0 _ _ _ = insert (resize cfilt) val
+        bumpHash remaingKicks cfilt' idxB fp = let
             bkts = buckets cfilt'
-            bA = bkts IM.! fromIntegral idxA
-            bB = bkts IM.! fromIntegral idxB
-            in case (insertBucket fp bA, insertBucket fp bB) of
-                (Just ba', _) -> cfilt' {buckets = IM.insert (fromIntegral idxA) ba' bkts }
-                (_, Just bb') -> cfilt' {buckets = IM.insert (fromIntegral idxB) bb' bkts }
-                (Nothing, Nothing) -> let
-                    (bumpedFP, bucket') = replaceBucketMinimum fp bB
-                    nextStepFilter = cfilt' {buckets = IM.insert (fromIntegral idxB) bucket' bkts }
-                    in doWork (remaingKicks - 1) nextStepFilter (bumpedFP:xs)
-            where
-                (IA idxA, IB idxB) = calcIndices val fp cfilt'
-
+            bucketB = bkts IM.! toIndex idxB
+            in case insertBucket fp bucketB of
+                Just bb' -> cfilt' {buckets = IM.insert (toIndex idxB) bb' bkts }
+                Nothing -> let
+                    (bumpedFP, bucketB') = replaceBucketMinimum fp bucketB
+                    nextStepFilter = cfilt' {buckets = IM.insert (toIndex idxB) bucketB' bkts }
+                    kickedIndex = kickedSecondaryIndex bumpedFP numBuckets idxB
+                    in bumpHash (remaingKicks - 1) nextStepFilter kickedIndex bumpedFP
 
         replaceBucketMinimum ::
             FingerPrint -- new value
@@ -129,23 +126,6 @@ insert cfilt vals = let
                 (_, _, True, _) -> (c, B (a, b, fp, d))
                 (_, _, _, True) -> (d, B (a, b, c, fp))
 
-primaryIndex :: Hashable a =>
-    a
-    -> Natural
-    -> IndexA
-primaryIndex a numBuckets = FP $ hash a `mod` numBuckets
-
-secondaryIndex ::
-    FingerPrint
-    -> IndexA
-    -> IndexB
-secondaryIndex (FP fp) (IA primary) = IB $ primary `xor` hash fp
-
-kickedSecondaryIndex ::
-    FingerPrint
-    -> IndexB
-    -> IndexA -- This is because there really isn't a primary or secondary just a or b
-kickedSecondaryIndex (FP fp) (IB alt) = IA $ alt `xor` hash fp
 
 
 member :: (Hashable a) =>
@@ -155,33 +135,49 @@ member :: (Hashable a) =>
 member a cFilter =
     inBucket fp bA || inBucket fp bB
     where
+        bktCount = numBuckets cFilter
         fp = makeFingerprint a
-        (IA idxA, IB idxB) = calcIndices a fp cFilter
+        idxA = primaryIndex a bktCount
+        idxB = secondaryIndex fp bktCount idxA
 
         -- TODO Try to make this typesafe
-        bA = buckets cFilter IM.! fromIntegral idxA
-        bB = buckets cFilter IM.! fromIntegral idxB
+        bA = buckets cFilter IM.! toIndex idxA
+        bB = buckets cFilter IM.! toIndex idxB
 
         -- fp `elem` [a,b,c,d] is simpler, but it allocates an additional list unnecessarily
         inBucket fp (B (a,b,c,d)) = fp == a || fp == b || fp == c || fp == d
 
--- | Find the primary and alternative index for an element
-calcIndices :: Hashable a =>
-    a
-    -> FingerPrint
-    -> Filter a
-    -> (IndexA, IndexB)
-calcIndices a fp F {numBuckets} =
-    (IA $ idxA `mod` numBuckets, IB $ idxB `mod` numBuckets)
-    where
-        (IA idxA) = hashFunctionA a
-        (IB idxB) = hashFunctionB fp (IA idxA)
+
+--
+-- Algorithms for creating indexes/ hashes
+--
 
 makeFingerprint :: Hashable a =>
     a
     -> FingerPrint
 makeFingerprint a = FP . fromIntegral $ hash a `mod` 255
 
+primaryIndex :: Hashable a =>
+    a
+    -> Natural
+    -> IndexA
+primaryIndex a numBuckets = IA $ fromIntegral (hash a) `mod` numBuckets
+
+secondaryIndex ::
+    FingerPrint
+    -> Natural
+    -> IndexA
+    -> IndexB
+secondaryIndex (FP fp) numBuckets (IA primary) =
+    IB . (`mod` numBuckets) $ primary `xor` fromIntegral (hash fp)
+
+kickedSecondaryIndex ::
+    FingerPrint
+    -> Natural
+    -> IndexB
+    -> IndexB
+kickedSecondaryIndex (FP fp) numBuckets (IB alt) =
+    IB . (`mod` numBuckets) $ alt `xor` fromIntegral (hash fp)
 
 delete :: (Hashable a) =>
     Filter a
