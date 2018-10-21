@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: a3dea5a97c5e863979475ae18626771879e24a5940dc96e07c5c620ff5bdb395
+-- hash: b5b21fbce6d853b8cb399faddf3b90bb16b7009faa5a032b1825d61570218a01
 
 name:           cuckoo-filter
 version:        0.1.0.0
@@ -34,7 +34,7 @@ library
       Paths_cuckoo_filter
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns
+  default-extensions: NamedFieldPuns DerivingStrategies
   build-depends:
       base >=4.7 && <5
     , containers

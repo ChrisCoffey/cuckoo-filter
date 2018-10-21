@@ -26,7 +26,7 @@ dependencies:
 
 library:
   source-dirs: src
-  default-extensions: NamedFieldPuns
+  default-extensions: NamedFieldPuns DerivingStrategies
   exported-modules:
       Data.CuckooFilter
 
