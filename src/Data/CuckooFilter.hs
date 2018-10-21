@@ -1,30 +1,36 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveAnyClass #-}
 
 module Data.CuckooFilter
     (
     -- * The Cuckoo Filter
-    FingerPrint(..),
-    Index(..),
     Size,
     makeSize,
     Filter,
     empty,
     load,
 
+    -- * Public API
     insert,
     member,
     delete
     ) where
 
-import Data.Hashable (Hashable, hash)
-import Data.Word (Word32, Word8)
-import Numeric.Natural (Natural)
+import Data.Aeson (ToJSON, FromJSON)
 import Data.Bits (xor)
-import qualified Data.Set as S
+import Data.Hashable (Hashable, hash)
 import qualified Data.IntMap.Strict as IM
+import Data.Serialize (Serialize)
+import qualified Data.Set as S
+import Data.Word (Word32, Word8)
+import GHC.Generics (Generic)
+import Numeric.Natural (Natural)
+
 
 newtype Size = Size Natural
     deriving (Show, Eq, Ord)
+    deriving stock Generic
+    deriving newtype (Serialize, ToJSON, FromJSON)
 makeSize :: Natural -> Maybe Size
 makeSize n
     | n == 0 = Nothing
@@ -35,26 +41,32 @@ class Index a where
 
 -- | An Index represents the keys into buckets
 newtype IndexA = IA Natural
-    deriving (Show, Eq, Ord)
-    deriving newtype Hashable
+    deriving (Show, Eq, Ord, Generic)
+    deriving newtype (ToJSON, FromJSON, Hashable)
+    deriving anyclass Serialize
 instance Index IndexA where
     toIndex (IA n) = fromIntegral n
 
 newtype IndexB = IB Natural
-    deriving (Show, Eq, Ord)
-    deriving newtype Hashable
+    deriving (Show, Eq, Ord, Generic)
+    deriving newtype (ToJSON, FromJSON, Hashable)
+    deriving anyclass Serialize
 instance Index IndexB where
     toIndex (IB n) = fromIntegral n
 
 -- | A FingerPrint is an 8 bit hash of a value
 newtype FingerPrint = FP Word8
-    deriving (Show, Eq, Ord)
-    deriving newtype Hashable
+    deriving (Show, Eq, Ord, Generic)
+    deriving newtype (ToJSON, FromJSON, Hashable)
+    deriving anyclass Serialize
 -- | A Bucket is a statically sized list of four FingerPrints.
 --
 -- TODO use a Word32 instead of a 4-tuple
 newtype Bucket = B (FingerPrint, FingerPrint, FingerPrint, FingerPrint)
     deriving (Show, Eq, Ord)
+    deriving stock Generic
+    deriving newtype (ToJSON, FromJSON)
+    deriving anyclass Serialize
 emptyBucket :: Bucket
 emptyBucket = B (FP 0, FP 0, FP 0, FP 0)
 
@@ -63,9 +75,10 @@ emptyBucket = B (FP 0, FP 0, FP 0, FP 0)
 data Filter a = F {
     buckets :: IM.IntMap Bucket, -- size / 4.
     numBuckets :: !Natural, -- Track the number of buckets to avoid a length lookup
-    load :: !Double, -- The current load ratio
+    load :: !Double, -- The current load ratio. Should this be false positive probability?
     size :: !Size -- The number of buckets
     }
+    deriving (Show, Generic, Serialize, ToJSON, FromJSON)
 
 
 
@@ -132,8 +145,6 @@ replaceInBucket fp predicate bucket@(B (a,b,c,d)) = let
         (_, _, True, _) -> (c, B (a, b, fp, d))
         (_, _, _, True) -> (d, B (a, b, c, fp))
         _ -> (fp, bucket)
-
-
 
 
 member :: (Hashable a) =>

@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 5d22e34b1c29a0170c21a36fc7f1d828cbf4306597497cc465f480e15e8cbd74
+-- hash: f5fa1bbfb7bacb4ba316e33c04d58cdafb6465f7601c1dce8ef42071bd2435b1
 
 name:           cuckoo-filter
 version:        0.1.0.0
@@ -34,9 +34,11 @@ library
       Paths_cuckoo_filter
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , cereal
     , containers
     , hashable
   default-language: Haskell2010
@@ -49,7 +51,9 @@ executable cuckoo-filter-exe
       app
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , cereal
     , containers
     , cuckoo-filter
     , hashable
@@ -64,7 +68,9 @@ test-suite cuckoo-filter-test
       test
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      base >=4.7 && <5
+      aeson
+    , base >=4.7 && <5
+    , cereal
     , containers
     , cuckoo-filter
     , hashable

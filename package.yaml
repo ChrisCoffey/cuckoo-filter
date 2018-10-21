@@ -23,10 +23,12 @@ dependencies:
 - base >= 4.7 && < 5
 - hashable
 - containers
+- cereal
+- aeson
 
 library:
   source-dirs: src
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
   exported-modules:
       Data.CuckooFilter
 
