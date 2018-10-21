@@ -109,22 +109,30 @@ insert cfilt@(F {numBuckets}) val = let
             in case insertBucket fp bucketB of
                 Just bb' -> cfilt' {buckets = IM.insert (toIndex idxB) bb' bkts }
                 Nothing -> let
-                    (bumpedFP, bucketB') = replaceBucketMinimum fp bucketB
+                    (bumpedFP, bucketB') = replaceInBucket fp isBucketMinimum bucketB
                     nextStepFilter = cfilt' {buckets = IM.insert (toIndex idxB) bucketB' bkts }
                     kickedIndex = kickedSecondaryIndex bumpedFP numBuckets idxB
                     in bumpHash (remaingKicks - 1) nextStepFilter kickedIndex bumpedFP
 
-        replaceBucketMinimum ::
-            FingerPrint -- new value
-            -> Bucket -- existing bucket
-            -> (FingerPrint, Bucket) -- smallest old fingerprint and updated bucket
-        replaceBucketMinimum fp (B (a,b,c,d)) = let
+        isBucketMinimum _ (B (a,b,c,d)) = let
             m = min a . min b $ min c d
-            in case (a == m, b == m, c == m, d == m) of
-                (True, _, _, _) -> (a, B (fp, b, c, d))
-                (_, True, _, _) -> (b, B (a, fp, c, d))
-                (_, _, True, _) -> (c, B (a, b, fp, d))
-                (_, _, _, True) -> (d, B (a, b, c, fp))
+            in (a == m, b == m, c == m, d == m)
+
+
+replaceInBucket ::
+    FingerPrint
+    -> (FingerPrint -> Bucket -> (Bool, Bool, Bool, Bool)) -- ^ Bucket predicate
+    -> Bucket -- existing bucket
+    -> (FingerPrint, Bucket) -- Removed fingerprint and latest bucket state
+replaceInBucket fp predicate bucket@(B (a,b,c,d)) = let
+    results = predicate fp bucket
+    in case results of
+        (True, _, _, _) -> (a, B (fp, b, c, d))
+        (_, True, _, _) -> (b, B (a, fp, c, d))
+        (_, _, True, _) -> (c, B (a, b, fp, d))
+        (_, _, _, True) -> (d, B (a, b, c, fp))
+        _ -> (fp, bucket)
+
 
 
 
@@ -179,11 +187,33 @@ kickedSecondaryIndex ::
 kickedSecondaryIndex (FP fp) numBuckets (IB alt) =
     IB . (`mod` numBuckets) $ alt `xor` fromIntegral (hash fp)
 
+-- | Deletes a single occurance of 'a' from the 'Filter'. It first checks for a value
+-- in the primary index, then in the secondary index.
+--
+-- Deleting an element not in the Cuckoo Filter is a noop and returns the filter unchanged.
 delete :: (Hashable a) =>
     Filter a
     -> a
     -> Filter a
-delete cFilt a = undefined
+delete cFilt@(F {numBuckets, buckets}) a
+    | not $ member a cFilt = cFilt
+    | otherwise = let
+        bucketA = buckets IM.! toIndex idxA
+        bucketB = buckets IM.! toIndex idxB
+        (removedFromA, bucketA') = removeFromBucket bucketA
+        (_, bucketB') = removeFromBucket bucketB
+        in if removedFromA
+           then cFilt {buckets = IM.insert (toIndex idxA) bucketA buckets}
+           else cFilt {buckets = IM.insert (toIndex idxB) bucketB' buckets}
+    where
+        fp = makeFingerprint a
+        idxA = primaryIndex fp numBuckets
+        idxB = secondaryIndex fp numBuckets idxA
+        -- TODO just use Control.Arrow
+        matchesFP _ (B (a,b,c,d))= (fp == a, fp == b, fp == c, fp == d)
+        removeFromBucket bucket = let
+            (_, bucket') = replaceInBucket (FP 0) matchesFP  bucket
+            in (bucket /= bucket', bucket')
 
 insertBucket ::
     FingerPrint
