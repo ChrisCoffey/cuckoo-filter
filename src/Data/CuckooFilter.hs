@@ -8,7 +8,7 @@ module Data.CuckooFilter
     makeSize,
     Filter,
     empty,
-    load,
+    falsePositiveProbability,
 
     -- * Public API
     insert,
@@ -26,6 +26,7 @@ import Data.Word (Word32, Word8)
 import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
 
+import Debug.Trace
 
 newtype Size = Size Natural
     deriving (Show, Eq, Ord)
@@ -64,9 +65,9 @@ emptyFP = FP 0
 -- | A Bucket is a statically sized list of four FingerPrints.
 --
 newtype Bucket = B Word32
-    deriving (Show, Eq, Ord)
+    deriving (Show, Ord)
     deriving stock Generic
-    deriving newtype (ToJSON, FromJSON)
+    deriving newtype (ToJSON, FromJSON, Eq)
     deriving anyclass Serialize
 emptyBucket :: Bucket
 emptyBucket = B 0
@@ -87,9 +88,11 @@ setCell ::
     -> FingerPrint
     -> Bucket
 setCell (B bucket) cellNumber (FP fp) =
-    B $ bucket .|. mask
+    B $ zeroed .|. mask
     where
         offset = (fromIntegral cellNumber) * 8
+        zeroed = (bucket .|. zeroMask) `xor` zeroMask
+        zeroMask = (255 :: Word32) `shiftL` offset
         mask = (fromIntegral fp :: Word32) `shiftL` offset
 
 -- Initially going for correctness. Then measure it with benchmarks and tune it. Consider
@@ -97,12 +100,17 @@ setCell (B bucket) cellNumber (FP fp) =
 data Filter a = F {
     buckets :: IM.IntMap Bucket, -- size / 4.
     numBuckets :: !Natural, -- Track the number of buckets to avoid a length lookup
-    load :: !Double, -- The current load ratio. Should this be false positive probability?
     size :: !Size -- The number of buckets
     }
-    deriving (Show, Generic, Serialize, ToJSON, FromJSON)
+    deriving (Show, Eq, Generic, Serialize, ToJSON, FromJSON)
 
 
+-- | TODO document the equation behind how fpp is calculated
+falsePositiveProbability ::
+    Filter a
+    -> Double
+falsePositiveProbability F {size, numBuckets} =
+    undefined
 
 empty ::
     Size -- ^ The initial size of the filter
@@ -110,7 +118,6 @@ empty ::
 empty (Size s) = F {
     buckets = IM.fromList [(fromIntegral x, emptyBucket) | x <- [0..numBuckets]],
     numBuckets = numBuckets,
-    load = 0,
     size = Size s
     }
     where
@@ -247,7 +254,7 @@ delete cFilt@(F {numBuckets, buckets}) a
            else cFilt {buckets = IM.insert (toIndex idxB) bucketB' buckets}
     where
         fp = makeFingerprint a
-        idxA = primaryIndex fp numBuckets
+        idxA = primaryIndex a numBuckets
         idxB = secondaryIndex fp numBuckets idxA
         -- TODO just use Control.Arrow
         matchesFP _ bucket = (fp == getCell bucket 0,
@@ -255,7 +262,7 @@ delete cFilt@(F {numBuckets, buckets}) a
                               fp == getCell bucket 2,
                               fp == getCell bucket 3)
         removeFromBucket bucket = let
-            (_, bucket') = replaceInBucket (FP 0) matchesFP  bucket
+            (_, bucket') = replaceInBucket (FP 0) matchesFP bucket
             in (bucket /= bucket', bucket')
 
 insertBucket ::
@@ -276,13 +283,29 @@ insertBucket fp bucket =
         c = emptyFP == getCell bucket 2
         d = emptyFP == getCell bucket 3
 
+-- | This is expensive, so it aggressively increases its size. This will cause problems
+-- for filters that are already large, so its worth modifying a 'Filter' to accept the
+-- scaling factor.
+--
+-- The algorithm is :
+-- 1) Create an empty filter of twice the size as the current one
+--
+-- 2) Re-index all stored elements into the new filter
+--
+-- 3) Return the new filter
+--
+-- can this be implemented without the source values? The new indices cannot be computed from only the fingerprints, they require both an index and fingerprint...
+-- Consider tweaking insert to fail
 resize ::
     Filter a
     -> Filter a
-resize old =  undefined
-    -- double the size when capacity is maxed
-    -- reinsert all elements
-    --
+resize F {buckets, numBuckets, size} =
+    undefined
+    where
+        s' = Size (s*2)
+        (Size s) = size
+        -- vals = [ undefined | n <- elems buckets, x <- [0..3] ]
+
 
 natHash :: Hashable a =>
     a ->
