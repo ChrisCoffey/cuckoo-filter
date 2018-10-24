@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: f5fa1bbfb7bacb4ba316e33c04d58cdafb6465f7601c1dce8ef42071bd2435b1
+-- hash: 8d6d3b4f1d72a42fe491b7534e38f2362f44b53f776045e897ee88dbaf65e750
 
 name:           cuckoo-filter
 version:        0.1.0.0
@@ -30,6 +30,7 @@ source-repository head
 library
   exposed-modules:
       Data.CuckooFilter
+      Data.CuckooFilter.Internal
   other-modules:
       Paths_cuckoo_filter
   hs-source-dirs:
@@ -66,9 +67,11 @@ test-suite cuckoo-filter-test
       Paths_cuckoo_filter
   hs-source-dirs:
       test
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
-      aeson
+      QuickCheck
+    , aeson
     , base >=4.7 && <5
     , cereal
     , containers

@@ -30,7 +30,8 @@ library:
   source-dirs: src
   default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
   exported-modules:
-      Data.CuckooFilter
+      Data.CuckooFilter,
+      Data.CuckooFilter.Internal
 
 executables:
   cuckoo-filter-exe:
@@ -56,3 +57,5 @@ tests:
     - tasty
     - tasty-quickcheck
     - tasty-hunit
+    - QuickCheck
+    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
