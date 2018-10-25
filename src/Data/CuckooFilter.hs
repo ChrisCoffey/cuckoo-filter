@@ -42,9 +42,9 @@ insert cfilt@(F {numBuckets}) val = let
     idxA = primaryIndex val numBuckets
     fp = makeFingerprint val
     bkts = buckets cfilt
-    bucketA = bkts IM.! toIndex idxA
+    bucketA = bkts IM.! toIndex numBuckets idxA
     in case insertBucket fp bucketA of
-        Just bucketA' -> Just $ cfilt {buckets = IM.insert (toIndex idxA) bucketA' bkts}
+        Just bucketA' -> Just $ cfilt {buckets = IM.insert (toIndex numBuckets idxA) bucketA' bkts}
         Nothing -> let
             idxB = secondaryIndex fp numBuckets idxA
             in bumpHash maxNumKicks cfilt idxB fp
@@ -56,12 +56,12 @@ insert cfilt@(F {numBuckets}) val = let
         bumpHash 0 _ _ _ = Nothing
         bumpHash remaingKicks cfilt' idxB fp = let
             bkts = buckets cfilt'
-            bucketB = bkts IM.! toIndex idxB
+            bucketB = bkts IM.! toIndex numBuckets idxB
             in case insertBucket fp bucketB of
-                Just bb' -> Just $ cfilt' {buckets = IM.insert (toIndex idxB) bb' bkts }
+                Just bb' -> Just $ cfilt' {buckets = IM.insert (toIndex numBuckets idxB) bb' bkts }
                 Nothing -> let
                     (bumpedFP, bucketB') = replaceInBucket fp isBucketMinimum bucketB
-                    nextStepFilter = cfilt' {buckets = IM.insert (toIndex idxB) bucketB' bkts }
+                    nextStepFilter = cfilt' {buckets = IM.insert (toIndex numBuckets idxB) bucketB' bkts }
                     kickedIndex = kickedSecondaryIndex bumpedFP numBuckets idxB
                     in bumpHash (remaingKicks - 1) nextStepFilter kickedIndex bumpedFP
 
@@ -72,7 +72,6 @@ insert cfilt@(F {numBuckets}) val = let
             d = getCell bkt 3
             m = min a . min b $ min c d
             in (a == m, b == m, c == m, d == m)
-
 
 
 member :: (Hashable a) =>
@@ -88,8 +87,8 @@ member a cFilter =
         idxB = secondaryIndex fp bktCount idxA
 
         -- TODO Try to make this typesafe
-        bA = buckets cFilter IM.! toIndex idxA
-        bB = buckets cFilter IM.! toIndex idxB
+        bA = buckets cFilter IM.! toIndex bktCount idxA
+        bB = buckets cFilter IM.! toIndex bktCount idxB
 
         -- fp `elem` [a,b,c,d] is simpler, but it allocates an additional list unnecessarily
         inBucket fp bucket =
@@ -111,13 +110,13 @@ delete :: (Hashable a) =>
 delete cFilt@(F {numBuckets, buckets}) a
     | not $ member a cFilt = cFilt
     | otherwise = let
-        bucketA = buckets IM.! toIndex idxA
-        bucketB = buckets IM.! toIndex idxB
+        bucketA = buckets IM.! toIndex numBuckets idxA
+        bucketB = buckets IM.! toIndex numBuckets idxB
         (removedFromA, bucketA') = removeFromBucket bucketA
         (_, bucketB') = removeFromBucket bucketB
         in if removedFromA
-           then cFilt {buckets = IM.insert (toIndex idxA) bucketA' buckets}
-           else cFilt {buckets = IM.insert (toIndex idxB) bucketB' buckets}
+           then cFilt {buckets = IM.insert (toIndex numBuckets idxA) bucketA' buckets}
+           else cFilt {buckets = IM.insert (toIndex numBuckets idxB) bucketB' buckets}
     where
         fp = makeFingerprint a
         idxA = primaryIndex a numBuckets

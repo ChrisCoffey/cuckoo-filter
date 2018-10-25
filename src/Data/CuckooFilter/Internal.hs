@@ -49,22 +49,22 @@ makeSize n
     | otherwise = Just . Size $ fromIntegral n
 
 class Index a where
-    toIndex :: a -> Int
+    toIndex :: Natural -> a -> Int
 
 -- | An Index represents the keys into buckets
-newtype IndexA = IA Natural
+newtype IndexA = IA Word32
     deriving (Show, Eq, Ord, Generic)
     deriving newtype (ToJSON, FromJSON, Hashable)
     deriving anyclass Serialize
 instance Index IndexA where
-    toIndex (IA n) = fromIntegral n
+    toIndex numBuckets (IA n) = fromIntegral n `mod` fromIntegral numBuckets
 
-newtype IndexB = IB Natural
+newtype IndexB = IB Word32
     deriving (Show, Eq, Ord, Generic)
     deriving newtype (ToJSON, FromJSON, Hashable)
     deriving anyclass Serialize
 instance Index IndexB where
-    toIndex (IB n) = fromIntegral n
+    toIndex numBuckets (IB n) = fromIntegral n `mod` fromIntegral numBuckets
 
 -- | A FingerPrint is an 8 bit hash of a value
 newtype FingerPrint = FP Word8
@@ -165,24 +165,31 @@ replaceInBucket fp predicate bucket = let
 -- Index and hashes
 --
 
+-- | hash a % 255. Fingerprints are 8 bits each, and completely opaque to the
+-- lookup algorithm.
 makeFingerprint :: Hashable a =>
     a
     -> FingerPrint
-makeFingerprint a = FP . max 1 $  fromIntegral (natHash a) `mod` 255
+makeFingerprint a = FP . max 1 $  fromIntegral (abs $ hash a) `mod` 255
 
+-- | (hash a) % numBuckets
 primaryIndex :: Hashable a =>
     a
     -> Natural
     -> IndexA
-primaryIndex a numBuckets = IA $ (natHash a) `mod` numBuckets
+primaryIndex a numBuckets =
+    IA . fromIntegral $ hash a
 
+-- | (indexA `xor` hash fp) % numBuckets
 secondaryIndex ::
     FingerPrint
     -> Natural
     -> IndexA
     -> IndexB
-secondaryIndex (FP fp) numBuckets (IA primary) =
-    IB . (`mod` numBuckets) $ primary `xor` (natHash fp)
+secondaryIndex fp numBuckets (IA primary) =
+    IB (primary `xor` fpHash)
+    where
+        fpHash = fromIntegral $ hash fp
 
 kickedSecondaryIndex ::
     FingerPrint
@@ -191,8 +198,3 @@ kickedSecondaryIndex ::
     -> IndexB
 kickedSecondaryIndex fp numBuckets (IB alt) =
     secondaryIndex fp numBuckets (IA alt)
-
-natHash :: Hashable a =>
-    a ->
-    Natural
-natHash = fromIntegral . abs . hash

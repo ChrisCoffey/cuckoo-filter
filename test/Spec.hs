@@ -3,8 +3,9 @@ import Test.Tasty.HUnit
 import Test.Tasty.QuickCheck
 import Test.QuickCheck
 
-import Control.Monad (foldM)
+import Control.Monad (foldM, replicateM)
 import Data.Hashable (Hashable)
+import Data.Maybe (isJust, isNothing)
 import Data.Word
 import Numeric.Natural (Natural)
 
@@ -22,13 +23,20 @@ tests = testGroup "Data.CuckooFilter" [
         f' = delete f s
         in defaultFilter == f'
 
+    ,testProperty "inserts into a full filter will fail" $ \s n -> let
+        f = insertNTimes (100000 + abs n) s defaultFilter
+        in isNothing f
+
     ,testCase "delete x on empty == empty" $ let
         (Just s) = makeSize 10
         in delete (empty s) "Foobar" @=? empty s
 
+    ,testProperty "Looking up a non existent value is False" $ \s ->
+        not (member s defaultFilter)
+
     -- the bucket size is hardcoded to 4 based on the recommendations from the paper, hence 8 below
     ,testCase "More than 2b deletes is a noop" $ do
-        let Just f' = insertNTimes 9 "Foobar" defaultFilter
+        let Just f' = insertNTimes 8 "Foobar" defaultFilter
             g = deleteNTimes 7 "Foobar" f'
             h = deleteNTimes 8 "Foobar" f'
             i = deleteNTimes 90 "Foobar" f'
@@ -42,18 +50,6 @@ tests = testGroup "Data.CuckooFilter" [
         Just f = insert defaultFilter s
         in member s f
 
-    ,testProperty "n inserts & n-1 deletes results in member x == True" $ \(s,n) -> let
-        posN = abs n
-        posM = max 0 (posN -1)
-        f = insertNTimes posN s defaultFilter
-        in case f of
-            Nothing -> posN > 8
-            Just filt -> let
-                f' = deleteNTimes posM s filt
-                in if n == 0
-                    then True
-                    else member s f'
-
     , indexTests
     , bucketTests
     ]
@@ -66,8 +62,6 @@ indexTests = testGroup "Indices" [
         IA piv = pi
         si = secondaryIndex fp n pi
         in (IB piv) == kickedSecondaryIndex fp n si
-
-
     ]
 
 bucketTests :: TestTree
@@ -95,7 +89,7 @@ bucketTests = testGroup "Buckets" [
 defaultFilter :: Filter String
 defaultFilter = empty s
     where
-        (Just s) = makeSize 100
+        (Just s) = makeSize 100000
 
 insertNTimes :: Hashable a =>
     Int
@@ -133,4 +127,11 @@ instance Arbitrary Natural where
 newtype FullBucket = FB Bucket
     deriving Show
 instance Arbitrary FullBucket where
-    arbitrary = (FB . B) <$> choose (1677217, maxBound)
+    arbitrary = do
+        [a,b,c,d] <- replicateM 4 $ choose (1,255)
+        let a' = setCell emptyBucket 0 (FP a)
+            b' = setCell a' 1 (FP b)
+            c' = setCell b' 2 (FP c)
+            d' = setCell c' 3 (FP d)
+        pure (FB d')
+
