@@ -1,6 +1,27 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
+{-|
+Module      : Data.CuckooFilter
+Copyright   : (c) Chris Coffey, 2018
+License     : MIT
+Maintainer  : chris@foldl.io
+Stability   : experimental
+
+Cuckoo filters are an alternative data structure to Bloom filters. They use a different
+approach to hashing items into the filter, which provides different behavior under load.
+
+Inserting an item in to a Bloom filter always succeeds, although as the load factor on
+the filter increases the false positive probability trends towards /%100/. Cuckoo filters
+on the other hand hold the false positive probability constant under load, but will
+begin to fail inserts.
+
+Cuckoo filters also support deletion natively, which allows reclaiming some used space
+from the filter to ward off insertion failures.
+
+For more details see: Fan, . Cuckoo Filter: Practically Better Than Bloom. Retrieved August 22, 2016, from https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf
+-}
+
 module Data.CuckooFilter
     (
     -- * The Cuckoo Filter
@@ -8,16 +29,11 @@ module Data.CuckooFilter
     makeSize,
     Filter,
     empty,
-    falsePositiveProbability,
 
-    -- * Public API
+    -- * Working with a Cuckoo Filter
     insert,
     member,
-    delete,
-    resize,
-
-    -- * Utilities exported for testing
-
+    delete
     ) where
 
 import qualified Data.IntMap.Strict as IM
@@ -25,18 +41,19 @@ import Data.Hashable (Hashable)
 
 import Data.CuckooFilter.Internal
 
--- | TODO document the equation behind how fpp is calculated
-falsePositiveProbability ::
-    Filter a
-    -> Double
-falsePositiveProbability F {size, numBuckets} =
-    undefined
 
-
--- | TODO add documentation outlining the algorithm in psuedocode
+-- | In exchange for the stable false-positive probability, insertion into a cuckoo filter
+-- may fail as the load factor increases.
+--
+-- Amoritized /O(1)/
+--
+-- Note, because of how cuckoo hashing works, inserts will fail when there's a set of items /s/
+-- that hash to the same fingerprint and share either IndexA or IndexB with probability /(2/numBuckets * 1/256)^ (|s|-1)/.
+-- Alternatively, inserting the same item /2b+1/ times will trigger the failure as well.
+--
 insert :: (Hashable a) =>
-    Filter a
-    -> a
+    Filter a -- ^ Current filter state
+    -> a -- ^ Item to hash and store in the filter
     -> Maybe (Filter a)
 insert cfilt@(F {numBuckets}) val = let
     idxA = primaryIndex val numBuckets
@@ -52,6 +69,7 @@ insert cfilt@(F {numBuckets}) val = let
         (Size s) = size cfilt
         maxNumKicks = floor $ 0.1 * fromIntegral s
 
+        -- The details of this algorithm can be found in https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf
         -- If the kick count is exhausted, the insert fails
         bumpHash 0 _ _ _ = Nothing
         bumpHash remaingKicks cfilt' idxB fp = let
@@ -73,10 +91,12 @@ insert cfilt@(F {numBuckets}) val = let
             m = min a . min b $ min c d
             in (a == m, b == m, c == m, d == m)
 
-
+-- | Checks whether a given item is within the filter.
+--
+-- /O(1)/
 member :: (Hashable a) =>
-    a
-    -> Filter a
+    a -- ^ Check if this element is in the filter
+    -> Filter a -- ^ The filter
     -> Bool
 member a cFilter =
     inBucket fp bA || inBucket fp bB
@@ -103,6 +123,8 @@ member a cFilter =
 -- in the primary index, then in the secondary index.
 --
 -- Deleting an element not in the Cuckoo Filter is a noop and returns the filter unchanged.
+--
+-- /O(1)/
 delete :: (Hashable a) =>
     Filter a
     -> a
@@ -129,29 +151,3 @@ delete cFilt@(F {numBuckets, buckets}) a
         removeFromBucket bucket = let
             (_, bucket') = replaceInBucket (FP 0) matchesFP bucket
             in (bucket /= bucket', bucket')
-
-
--- | This is expensive, so it aggressively increases its size. This will cause problems
--- for filters that are already large, so its worth modifying a 'Filter' to accept the
--- scaling factor.
---
--- The algorithm is :
--- 1) Create an empty filter of twice the size as the current one
---
--- 2) Re-index all stored elements into the new filter
---
--- 3) Return the new filter
---
--- can this be implemented without the source values? The new indices cannot be computed from only the fingerprints, they require both an index and fingerprint...
--- Consider tweaking insert to fail
-resize ::
-    Filter a
-    -> Filter a
-resize F {buckets, numBuckets, size} =
-    undefined
-    where
-        s' = Size (s*2)
-        (Size s) = size
-        -- vals = [ undefined | n <- elems buckets, x <- [0..3] ]
-
-

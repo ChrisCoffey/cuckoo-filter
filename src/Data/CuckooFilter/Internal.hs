@@ -1,8 +1,20 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE DeriveAnyClass #-}
 
+{-|
+Module      : Data.CuckooFilter.Internal
+Description : Internal functions and data types for Data.CuckooFilter
+Copyright   : (c) Chris Coffey, 2018
+License     : MIT
+Maintainer  : chris@foldl.io
+Stability   : experimental
+
+This is the internal API and implemntation of 'Data.CuckooFilter'. It is subject to
+change at any time and should not be used. Instead, use the exports from 'Data.CuckooFilter'.
+-}
+
 module Data.CuckooFilter.Internal (
-    -- * Consting a CuckooFilter
+    -- * Constructing a Cuckoo Filter
     Size(..),
     makeSize,
     Filter(..),
@@ -39,10 +51,13 @@ import Data.Word (Word32, Word8)
 import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
 
+-- | A non-zero natural number. Generally this is a power of two, although there's no hard requirement
+-- for that given the current implementation.
 newtype Size = Size Natural
     deriving (Show, Eq, Ord)
     deriving stock Generic
     deriving newtype (Serialize, ToJSON, FromJSON)
+-- | Safely make a 'Size' or fail if a 0 is provided.
 makeSize :: Natural -> Maybe Size
 makeSize n
     | n == 0 = Nothing
@@ -106,8 +121,8 @@ setCell (B bucket) cellNumber (FP fp) =
         zeroMask = (255 :: Word32) `shiftL` offset
         mask = (fromIntegral fp :: Word32) `shiftL` offset
 
--- Initially going for correctness. Then measure it with benchmarks and tune it. Consider
--- unpacking and alternative data structures.
+-- | A Cuckoo Filter with a fixed size. The current implementation uses 8 bit fingerprints
+-- and 4 element buckets.
 data Filter a = F {
     buckets :: IM.IntMap Bucket, -- size / 4.
     numBuckets :: !Natural, -- Track the number of buckets to avoid a length lookup
@@ -115,6 +130,7 @@ data Filter a = F {
     }
     deriving (Show, Eq, Generic, Serialize, ToJSON, FromJSON)
 
+-- | Creates a new & empty 'Filter' of size s
 empty ::
     Size -- ^ The initial size of the filter
     -> Filter a
