@@ -144,7 +144,6 @@ empty (Size s) = F {
     size = Size s
     }
     where
-        addBucket rawFilt n = IM.insert (fromIntegral n) emptyBucket  rawFilt
         numBuckets = s `div` 4
 
 --

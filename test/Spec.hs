@@ -21,7 +21,7 @@ tests = testGroup "Data.CuckooFilter" [
     testProperty "insert x >> delete x is idempotent" $ \s -> let
         Just f = insert defaultFilter s
         f' = delete f s
-        in defaultFilter == f'
+        in not (member s f')
 
     ,testProperty "inserts into a full filter will fail" $ \s n -> let
         f = insertNTimes (100000 + abs n) s defaultFilter
