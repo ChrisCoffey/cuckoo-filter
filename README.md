@@ -9,11 +9,19 @@ Bloom filters are the cannonical probabilistic filter structure, and cuckoo filt
 This implementation has the following properties:
 - Buckets of 4 elements
 - 8 bit fingerprints
+- Cycle termination during item kicking occurs after (0.1 * size) buckets have been checked.
 - Size may be any non-zero natural number (not limited to powers of 2)
 
 For more details about how Cuckoo filters work, I recommend you read Fan et. al.'s 2016 paper https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf.
 
+### Usage
+Cuckoo filters support three operations: `insert`, `member`, and `delete`. See the [haddocks]() for details.
+
+### Performance
+As you'll find in the criterion results, the pure version of the filter can handle ~1.6 million insertions/s. From memory profiles, the vast majority of the memory is taken up by the underlying implementation of `Filter`, so this is an obvious area for improvement.
+
+The current implementation avoids pre-allocating memory for the filter, so the heap usage will incrase linearly with `insert` calls. This obviously helps keep heap usage low for sparse filters, but also means inserts are slower than they would be in a mutable implementation.
+
 ### TODO
-- [ ] Benchmark against Bloom filter implementation
-- [ ] Profile for memory usage
-- [ ] Provide criterion performance graphs
+- [ ] Benchmark against a Bloom filter implementation
+- [ ] Introduce a mutable version of `Filter` and a typeclass for the storage interactions

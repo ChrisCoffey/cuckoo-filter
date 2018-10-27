@@ -36,8 +36,9 @@ module Data.CuckooFilter
     delete
     ) where
 
-import qualified Data.IntMap.Strict as IM
 import Data.Hashable (Hashable)
+import qualified Data.IntMap.Strict as IM
+import Data.Maybe (fromMaybe)
 
 import Data.CuckooFilter.Internal
 
@@ -59,7 +60,7 @@ insert cfilt@(F {numBuckets}) val = let
     idxA = primaryIndex val numBuckets
     fp = makeFingerprint val
     bkts = buckets cfilt
-    bucketA = bkts IM.! toIndex numBuckets idxA
+    bucketA = fromMaybe emptyBucket $ toIndex numBuckets idxA `IM.lookup` bkts
     in case insertBucket fp bucketA of
         Just bucketA' -> Just $ cfilt {buckets = IM.insert (toIndex numBuckets idxA) bucketA' bkts}
         Nothing -> let
@@ -74,7 +75,7 @@ insert cfilt@(F {numBuckets}) val = let
         bumpHash 0 _ _ _ = Nothing
         bumpHash remaingKicks cfilt' idxB fp = let
             bkts = buckets cfilt'
-            bucketB = bkts IM.! toIndex numBuckets idxB
+            bucketB = fromMaybe emptyBucket $ toIndex numBuckets idxB `IM.lookup` bkts
             in case insertBucket fp bucketB of
                 Just bb' -> Just $ cfilt' {buckets = IM.insert (toIndex numBuckets idxB) bb' bkts }
                 Nothing -> let
@@ -105,10 +106,11 @@ member a cFilter =
         fp = makeFingerprint a
         idxA = primaryIndex a bktCount
         idxB = secondaryIndex fp bktCount idxA
+        bkts = buckets cFilter
 
         -- TODO Try to make this typesafe
-        bA = buckets cFilter IM.! toIndex bktCount idxA
-        bB = buckets cFilter IM.! toIndex bktCount idxB
+        bA = fromMaybe emptyBucket $ toIndex bktCount idxA `IM.lookup` bkts
+        bB = fromMaybe emptyBucket $ toIndex bktCount idxB `IM.lookup` bkts
 
         -- fp `elem` [a,b,c,d] is simpler, but it allocates an additional list unnecessarily
         inBucket fp bucket =
@@ -132,8 +134,8 @@ delete :: (Hashable a) =>
 delete cFilt@(F {numBuckets, buckets}) a
     | not $ member a cFilt = cFilt
     | otherwise = let
-        bucketA = buckets IM.! toIndex numBuckets idxA
-        bucketB = buckets IM.! toIndex numBuckets idxB
+        bucketA = fromMaybe emptyBucket $ toIndex numBuckets idxA `IM.lookup` buckets
+        bucketB = fromMaybe emptyBucket $ toIndex numBuckets idxB `IM.lookup` buckets
         (removedFromA, bucketA') = removeFromBucket bucketA
         (_, bucketB') = removeFromBucket bucketB
         in if removedFromA

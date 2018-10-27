@@ -27,35 +27,43 @@ dependencies:
 - aeson
 
 library:
-  source-dirs: src
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
-  exported-modules:
-      Data.CuckooFilter,
-      Data.CuckooFilter.Internal
+    source-dirs: src
+    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
+    exported-modules:
+        Data.CuckooFilter,
+        Data.CuckooFilter.Internal
+    ghc-options:
+    - -O2
 
 executables:
-  cuckoo-filter-exe:
-    main:                Main.hs
-    source-dirs:         app
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - cuckoo-filter
+    benchmarks:
+        main:               Benchmarks.hs
+        source-dirs:        benchmarks
+        other-modules:      Benchmarks.Simple
+        ghc-options:
+        - -threaded
+        - -rtsopts
+        - -with-rtsopts=-N
+        - -O2
+          #- -prof
+          #- -fprof-auto
+        dependencies:
+        - cuckoo-filter
+        - criterion
+        - random
 
 tests:
-  cuckoo-filter-test:
-    main:                Spec.hs
-    source-dirs:         test
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - cuckoo-filter
-    - tasty
-    - tasty-quickcheck
-    - tasty-hunit
-    - QuickCheck
-    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
+    cuckoo-filter-test:
+        main:                Spec.hs
+        source-dirs:         test
+        ghc-options:
+        - -threaded
+        - -rtsopts
+        - -with-rtsopts=-N
+        dependencies:
+        - cuckoo-filter
+        - tasty
+        - tasty-quickcheck
+        - tasty-hunit
+        - QuickCheck
+        default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric

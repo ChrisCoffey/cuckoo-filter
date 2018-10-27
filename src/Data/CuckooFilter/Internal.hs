@@ -44,6 +44,7 @@ module Data.CuckooFilter.Internal (
 
 import Data.Aeson (ToJSON, FromJSON)
 import Data.Bits (xor, (.&.), (.|.), shiftR, shiftL)
+import Data.Foldable (foldl')
 import qualified Data.IntMap.Strict as IM
 import Data.Hashable (Hashable, hash)
 import Data.Serialize (Serialize)
@@ -135,11 +136,15 @@ empty ::
     Size -- ^ The initial size of the filter
     -> Filter a
 empty (Size s) = F {
-    buckets = IM.fromList [(fromIntegral x, emptyBucket) | x <- [0..numBuckets]],
+    -- By using an empty map, we're able to avoid allocating any memory for elements that aren't stored.
+    -- If the filter is packed densely the additional memory for the IntMap hurts quite a bit, but at load
+    -- factors
+    buckets = IM.empty,
     numBuckets = numBuckets,
     size = Size s
     }
     where
+        addBucket rawFilt n = IM.insert (fromIntegral n) emptyBucket  rawFilt
         numBuckets = s `div` 4
 
 --
