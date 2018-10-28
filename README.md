@@ -15,7 +15,7 @@ This implementation has the following properties:
 For more details about how Cuckoo filters work, I recommend you read Fan et. al.'s 2016 paper https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf.
 
 ### Usage
-Cuckoo filters support three operations: `insert`, `member`, and `delete`. See the [haddocks]() for details.
+Cuckoo filters support three operations: `insert`, `member`, and `delete`. See the [haddocks](https://hackage.haskell.org/package/cuckoo-filter) for details.
 
 ### Performance
 As you'll find in the criterion results, the pure version of the filter can handle ~1.6 million insertions/s. From memory profiles, the vast majority of the memory is taken up by the underlying implementation of `Filter`, so this is an obvious area for improvement.
