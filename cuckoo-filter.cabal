@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 39f661e082b0630ac91c43d1adf7e2cfb00d6a9e2983e9223a63e7ea8433c78f
+-- hash: 0ebb44bfcf7104adcb38947b3420f70be3728a604ef7b442ab103b8815b32630
 
 name:           cuckoo-filter
-version:        0.1.0.0
+version:        0.1.0.1
 synopsis:       Pure and impure Cuckoo Filter
 description:    Please see the README on Github at <https://github.com/ChrisCoffey/cuckoo-filter#readme>
 category:       Data

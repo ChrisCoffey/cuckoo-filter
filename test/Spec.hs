@@ -128,8 +128,9 @@ newtype FullBucket = FB Bucket
     deriving Show
 instance Arbitrary FullBucket where
     arbitrary = do
-        [a,b,c,d] <- replicateM 4 $ choose (1,255)
-        let a' = setCell emptyBucket 0 (FP a)
+        res <- replicateM 4 $ choose (1,255)
+        let [a,b,c,d] = res
+            a' = setCell emptyBucket 0 (FP a)
             b' = setCell a' 1 (FP b)
             c' = setCell b' 2 (FP c)
             d' = setCell c' 3 (FP d)
