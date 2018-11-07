@@ -22,6 +22,3 @@ As you'll find in the criterion results, the pure version of the filter can hand
 
 The current implementation avoids pre-allocating memory for the filter, so the heap usage will incrase linearly with `insert` calls. This obviously helps keep heap usage low for sparse filters, but also means inserts are slower than they would be in a mutable implementation.
 
-### TODO
-- [ ] Benchmark against a Bloom filter implementation
-- [ ] Introduce a mutable version of `Filter` and a typeclass for the storage interactions

@@ -1,6 +1,3 @@
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE DeriveAnyClass #-}
-
 {-|
 Module      : Data.CuckooFilter
 Copyright   : (c) Chris Coffey, 2018
@@ -37,10 +34,10 @@ module Data.CuckooFilter
     ) where
 
 import Data.Hashable (Hashable)
-import qualified Data.IntMap.Strict as IM
 import Data.Maybe (fromMaybe)
 
 import Data.CuckooFilter.Internal
+import Data.CuckooFilter.Pure
 
 
 -- | In exchange for the stable false-positive probability, insertion into a cuckoo filter

@@ -17,8 +17,7 @@ module Data.CuckooFilter.Internal (
     -- * Constructing a Cuckoo Filter
     Size(..),
     makeSize,
-    Filter(..),
-    empty,
+    CuckooFilter(..),
 
     -- * Fingerprints
     FingerPrint(..),
@@ -51,6 +50,18 @@ import Data.Serialize (Serialize)
 import Data.Word (Word32, Word8)
 import GHC.Generics (Generic)
 import Numeric.Natural (Natural)
+
+-- | A low-level interface for working with cuckoo filter storage.
+class Monad m => CuckooFilter filt m where
+    -- | Create a new cuckoo filter of the specified size
+    initialize :: Size -> m (filt a)
+
+    -- | Write the new contents of a bucket to the storage
+    writeBucket :: Int -> Bucket -> filt a -> m (filt a)
+
+    -- | Read the contents of a bucket from the storage
+    readBucket :: Int -> filt a -> m Bucket
+
 
 -- | A non-zero natural number. Generally this is a power of two, although there's no hard requirement
 -- for that given the current implementation.
@@ -122,29 +133,6 @@ setCell (B bucket) cellNumber (FP fp) =
         zeroMask = (255 :: Word32) `shiftL` offset
         mask = (fromIntegral fp :: Word32) `shiftL` offset
 
--- | A Cuckoo Filter with a fixed size. The current implementation uses 8 bit fingerprints
--- and 4 element buckets.
-data Filter a = F {
-    buckets :: IM.IntMap Bucket, -- size / 4.
-    numBuckets :: !Natural, -- Track the number of buckets to avoid a length lookup
-    size :: !Size -- The number of buckets
-    }
-    deriving (Show, Eq, Generic, Serialize, ToJSON, FromJSON)
-
--- | Creates a new & empty 'Filter' of size s
-empty ::
-    Size -- ^ The initial size of the filter
-    -> Filter a
-empty (Size s) = F {
-    -- By using an empty map, we're able to avoid allocating any memory for elements that aren't stored.
-    -- If the filter is packed densely the additional memory for the IntMap hurts quite a bit, but at load
-    -- factors
-    buckets = IM.empty,
-    numBuckets = numBuckets,
-    size = Size s
-    }
-    where
-        numBuckets = s `div` 4
 
 --
 -- Working with Buckets

@@ -25,13 +25,16 @@ dependencies:
 - containers
 - cereal
 - aeson
+- array
 
 library:
     source-dirs: src
-    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
+    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses
+        FunctionalDependencies FlexibleContexts
     exported-modules:
         Data.CuckooFilter,
-        Data.CuckooFilter.Internal
+        Data.CuckooFilter.Internal,
+        Data.CuckooFilter.Mutable
     ghc-options:
     - -O2
 

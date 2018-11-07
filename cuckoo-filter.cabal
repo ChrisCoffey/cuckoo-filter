@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 0ebb44bfcf7104adcb38947b3420f70be3728a604ef7b442ab103b8815b32630
+-- hash: 92339d5754c281bcb1cc23f8bd74de0535cfb1b6c8cee0b9ea282bef6b63b2cb
 
 name:           cuckoo-filter
-version:        0.1.0.1
+version:        0.1.0.2
 synopsis:       Pure and impure Cuckoo Filter
 description:    Please see the README on Github at <https://github.com/ChrisCoffey/cuckoo-filter#readme>
 category:       Data
@@ -31,14 +31,18 @@ library
   exposed-modules:
       Data.CuckooFilter
       Data.CuckooFilter.Internal
+      Data.CuckooFilter.Mutable
+      Data.CuckooFilter.Pure
+      Data.CuckooFilter.Tutorial
   other-modules:
       Paths_cuckoo_filter
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses FunctionalDependencies FlexibleContexts
   ghc-options: -O2
   build-depends:
       aeson
+    , array
     , base >=4.7 && <5
     , cereal
     , containers
@@ -54,6 +58,7 @@ executable benchmarks
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -O2
   build-depends:
       aeson
+    , array
     , base >=4.7 && <5
     , cereal
     , containers
@@ -75,6 +80,7 @@ test-suite cuckoo-filter-test
   build-depends:
       QuickCheck
     , aeson
+    , array
     , base >=4.7 && <5
     , cereal
     , containers
