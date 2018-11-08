@@ -13,14 +13,14 @@ practical for real usecases.
 -}
 
 module Data.CuckooFilter.Pure (
-    Filter(..),
-    empty,
+    Filter(..)
 ) where
 
-import Data.CuckooFilter.Internal (Bucket, Size(..))
+import Data.CuckooFilter.Internal (Bucket, emptyBucket, Size(..), CuckooFilter(..))
 
 import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.IntMap.Strict as IM
+import Data.Maybe (fromMaybe)
 import Data.Serialize (Serialize)
 import Data.Word (Word32, Word8)
 import GHC.Generics (Generic)
@@ -48,5 +48,14 @@ instance Monad m => CuckooFilter Filter m where
         where
             numBuckets = s `div` 4
 
-    writeBucket index Bucket filt = pure $
+    {-# INLINE bucketCount #-}
+    bucketCount F {numBuckets} = pure numBuckets
+
+    {-# INLINE writeBucket #-}
+    writeBucket index bucket filt@(F {buckets} )= pure $
+        filt {buckets = IM.insert index bucket buckets}
+
+    {-# INLINE readBucket #-}
+    readBucket index F {buckets} = pure . fromMaybe emptyBucket $ IM.lookup index buckets
+
 

@@ -56,6 +56,9 @@ class Monad m => CuckooFilter filt m where
     -- | Create a new cuckoo filter of the specified size
     initialize :: Size -> m (filt a)
 
+    -- | Return the number of buckets contained in the filter. This is distinct from the total size of the filter (size /4)
+    bucketCount :: filt a -> m Natural
+
     -- | Write the new contents of a bucket to the storage
     writeBucket :: Int -> Bucket -> filt a -> m (filt a)
 
@@ -114,6 +117,7 @@ getCell ::
     Bucket
     -> Natural -- Really just 0-3. Is it worth creating a custom datatype for this?
     -> FingerPrint
+{-# INLINE getCell #-}
 getCell (B bucket) cellNumber =
     FP . fromIntegral $ (bucket .&. mask) `shiftR` offset
     where
@@ -125,6 +129,7 @@ setCell ::
     -> Natural
     -> FingerPrint
     -> Bucket
+{-# INLINE setCell #-}
 setCell (B bucket) cellNumber (FP fp) =
     B $ zeroed .|. mask
     where
@@ -178,6 +183,7 @@ replaceInBucket fp predicate bucket = let
 makeFingerprint :: Hashable a =>
     a
     -> FingerPrint
+{-# INLINE makeFingerprint #-}
 makeFingerprint a = FP . max 1 $  fromIntegral (abs $ hash a) `mod` 255
 
 -- | (hash a) % numBuckets
@@ -185,6 +191,7 @@ primaryIndex :: Hashable a =>
     a
     -> Natural
     -> IndexA
+{-# INLINE primaryIndex #-}
 primaryIndex a numBuckets =
     IA . fromIntegral $ hash a
 
@@ -194,6 +201,7 @@ secondaryIndex ::
     -> Natural
     -> IndexA
     -> IndexB
+{-# INLINE secondaryIndex #-}
 secondaryIndex fp numBuckets (IA primary) =
     IB (primary `xor` fpHash)
     where
@@ -204,5 +212,6 @@ kickedSecondaryIndex ::
     -> Natural
     -> IndexB
     -> IndexB
+{-# INLINE kickedSecondaryIndex #-}
 kickedSecondaryIndex fp numBuckets (IB alt) =
     secondaryIndex fp numBuckets (IA alt)

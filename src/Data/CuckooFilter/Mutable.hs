@@ -50,11 +50,16 @@ instance CuckooFilter MFilter IO where
         where
             nb = s `div` 4
 
+    {-# INLINE bucketCount #-}
+    bucketCount MF { numBuckets } = pure numBuckets
+
+    {-# INLINE writeBucket #-}
     writeBucket index (B val) filt = do
         let f arr = A.writeArray arr index val >> pure arr
         modifyMVar_ (buckets filt) f
         pure filt
 
+    {-# INLINE readBucket #-}
     readBucket index filt = do
         arr <- readMVar $ buckets filt
         B <$> A.readArray arr index

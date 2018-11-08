@@ -8,6 +8,7 @@ module Benchmarks.Simple (
 import Criterion
 import Control.Monad (foldM)
 import Data.CuckooFilter
+import Data.Functor.Identity (runIdentity)
 import Data.Ratio (Ratio)
 import Numeric.Natural (Natural)
 import System.Environment
@@ -16,11 +17,11 @@ import System.Random
 stdInBenchmark :: IO ()
 stdInBenchmark = do
     [n, m] <- fmap read <$> getArgs
-    let (Just s) = makeSize n
-        filt = empty s
+    let (Just s) = makeSize (fromIntegral n)
+        filt  = runIdentity $ initialize s :: Filter Int
     print s
-    filt' <- pure $ foldM (\ f a -> f `insert` a) filt [1..m]
-    print $ member 1 <$> filt'
+    filt' <- pure $ foldM (\ f a -> f `insertIdent` a) filt [1..m]
+    print $ (runIdentity . member 1) <$> filt'
 
 tenPctPacked :: Benchmark
 tenPctPacked = bgroup "10% packed" [
@@ -64,8 +65,9 @@ doTest ::
     -> LoadFactor
     -> DupePct
     -> Maybe (Filter Int)
-doTest size (LF lf) (D d) =
-    foldM insert (empty s) vals
+doTest size (LF lf) (D d) = do
+    filt <- initialize s
+    foldM insertIdent filt vals
     where
         valCount :: Int
         valCount = floor $ (fromIntegral size) * (realToFrac lf / 100.0)
@@ -76,3 +78,9 @@ doTest size (LF lf) (D d) =
                 else []
         vals = dupes <> [1..(valCount - dupeCount)]
         Just s = makeSize size
+
+insertIdent ::
+    Filter Int
+    -> Int
+    -> Maybe (Filter Int)
+insertIdent filt n = runIdentity $ insert filt n

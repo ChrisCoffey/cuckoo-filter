@@ -25,7 +25,8 @@ module Data.CuckooFilter
     Size,
     makeSize,
     Filter,
-    empty,
+    MFilter,
+    initialize,
 
     -- * Working with a Cuckoo Filter
     insert,
@@ -38,6 +39,7 @@ import Data.Maybe (fromMaybe)
 
 import Data.CuckooFilter.Internal
 import Data.CuckooFilter.Pure
+import Data.CuckooFilter.Mutable
 
 
 -- | In exchange for the stable false-positive probability, insertion into a cuckoo filter
@@ -49,37 +51,38 @@ import Data.CuckooFilter.Pure
 -- that hash to the same fingerprint and share either IndexA or IndexB with probability /(2/numBuckets * 1/256)^ (|s|-1)/.
 -- Alternatively, inserting the same item /2b+1/ times will trigger the failure as well.
 --
-insert :: (Hashable a) =>
-    Filter a -- ^ Current filter state
+insert :: (Hashable a, Monad m, CuckooFilter filt m) =>
+    filt a -- ^ Current filter state
     -> a -- ^ Item to hash and store in the filter
-    -> Maybe (Filter a)
-insert cfilt@(F {numBuckets}) val = let
-    idxA = primaryIndex val numBuckets
-    fp = makeFingerprint val
-    bkts = buckets cfilt
-    bucketA = fromMaybe emptyBucket $ toIndex numBuckets idxA `IM.lookup` bkts
-    in case insertBucket fp bucketA of
-        Just bucketA' -> Just $ cfilt {buckets = IM.insert (toIndex numBuckets idxA) bucketA' bkts}
+    -> m (Maybe (filt a))
+insert cfilt val = do
+    numBuckets <- bucketCount cfilt
+    let idxA = primaryIndex val numBuckets
+        fp = makeFingerprint val
+    bucketA <- readBucket (toIndex numBuckets idxA) cfilt
+    case insertBucket fp bucketA of
+        Just bucketA' ->
+            Just <$> writeBucket (toIndex numBuckets idxA) bucketA' cfilt
         Nothing -> let
             idxB = secondaryIndex fp numBuckets idxA
-            in bumpHash maxNumKicks cfilt idxB fp
+            in bumpHash numBuckets maxNumKicks cfilt idxB fp
     where
-        (Size s) = size cfilt
-        maxNumKicks = floor $ 0.1 * fromIntegral s
+        maxNumKicks = 1200
 
         -- The details of this algorithm can be found in https://www.cs.cmu.edu/~dga/papers/cuckoo-conext2014.pdf
-        -- If the kick count is exhausted, the insert fails
-        bumpHash 0 _ _ _ = Nothing
-        bumpHash remaingKicks cfilt' idxB fp = let
-            bkts = buckets cfilt'
-            bucketB = fromMaybe emptyBucket $ toIndex numBuckets idxB `IM.lookup` bkts
-            in case insertBucket fp bucketB of
-                Just bb' -> Just $ cfilt' {buckets = IM.insert (toIndex numBuckets idxB) bb' bkts }
-                Nothing -> let
-                    (bumpedFP, bucketB') = replaceInBucket fp isBucketMinimum bucketB
-                    nextStepFilter = cfilt' {buckets = IM.insert (toIndex numBuckets idxB) bucketB' bkts }
-                    kickedIndex = kickedSecondaryIndex bumpedFP numBuckets idxB
-                    in bumpHash (remaingKicks - 1) nextStepFilter kickedIndex bumpedFP
+        -- If the kick count is exhausted, the insert fails. Otherwise, it will loop until it finds an open cell,
+        -- insert the value, then return the filter
+        bumpHash numBuckets 0 _ _ _ = pure Nothing
+        bumpHash numBuckets remaingKicks cfilt' idxB fp = do
+            bucketB <- readBucket (toIndex numBuckets idxB) cfilt'
+            case insertBucket fp bucketB of
+                Just bb' ->
+                    Just <$> writeBucket (toIndex numBuckets idxB) bb' cfilt
+                Nothing -> do
+                    let (bumpedFP, bucketB') = replaceInBucket fp isBucketMinimum bucketB
+                        kickedIndex = kickedSecondaryIndex bumpedFP numBuckets idxB
+                    nextStepFilter <- writeBucket (toIndex numBuckets idxB) bucketB' cfilt'
+                    bumpHash numBuckets (remaingKicks - 1) nextStepFilter kickedIndex bumpedFP
 
         isBucketMinimum _ bkt = let
             a = getCell bkt 0
@@ -92,22 +95,19 @@ insert cfilt@(F {numBuckets}) val = let
 -- | Checks whether a given item is within the filter.
 --
 -- /O(1)/
-member :: (Hashable a) =>
+member :: (Hashable a, Monad m, CuckooFilter filt m) =>
     a -- ^ Check if this element is in the filter
-    -> Filter a -- ^ The filter
-    -> Bool
-member a cFilter =
-    inBucket fp bA || inBucket fp bB
+    -> filt a -- ^ The filter
+    -> m Bool
+member a cFilter = do
+    numBuckets <- bucketCount cFilter
+    let idxA = primaryIndex a numBuckets
+        idxB = secondaryIndex fp numBuckets idxA
+    bA <- readBucket ( toIndex numBuckets idxA ) cFilter
+    bB <- readBucket ( toIndex numBuckets idxB ) cFilter
+    pure $ inBucket fp bA || inBucket fp bB
     where
-        bktCount = numBuckets cFilter
         fp = makeFingerprint a
-        idxA = primaryIndex a bktCount
-        idxB = secondaryIndex fp bktCount idxA
-        bkts = buckets cFilter
-
-        -- TODO Try to make this typesafe
-        bA = fromMaybe emptyBucket $ toIndex bktCount idxA `IM.lookup` bkts
-        bB = fromMaybe emptyBucket $ toIndex bktCount idxB `IM.lookup` bkts
 
         -- fp `elem` [a,b,c,d] is simpler, but it allocates an additional list unnecessarily
         inBucket fp bucket =
@@ -124,24 +124,28 @@ member a cFilter =
 -- Deleting an element not in the Cuckoo Filter is a noop and returns the filter unchanged.
 --
 -- /O(1)/
-delete :: (Hashable a) =>
-    Filter a
+delete :: (Hashable a, Monad m, CuckooFilter filt m) =>
+    filt a
     -> a
-    -> Filter a
-delete cFilt@(F {numBuckets, buckets}) a
-    | not $ member a cFilt = cFilt
-    | otherwise = let
-        bucketA = fromMaybe emptyBucket $ toIndex numBuckets idxA `IM.lookup` buckets
-        bucketB = fromMaybe emptyBucket $ toIndex numBuckets idxB `IM.lookup` buckets
-        (removedFromA, bucketA') = removeFromBucket bucketA
-        (_, bucketB') = removeFromBucket bucketB
-        in if removedFromA
-           then cFilt {buckets = IM.insert (toIndex numBuckets idxA) bucketA' buckets}
-           else cFilt {buckets = IM.insert (toIndex numBuckets idxB) bucketB' buckets}
+    -> m (filt a)
+delete cFilt a = do
+    isMember <- member a cFilt
+    if isMember
+    then do
+        numBuckets <- bucketCount cFilt
+        let idxA = primaryIndex a numBuckets
+            idxB = secondaryIndex fp numBuckets idxA
+        bucketA <- readBucket ( toIndex numBuckets idxA ) cFilt
+        bucketB <- readBucket ( toIndex numBuckets idxB ) cFilt
+        let (removedFromA, bucketA') = removeFromBucket bucketA
+            (_, bucketB') = removeFromBucket bucketB
+        if removedFromA
+        then writeBucket (toIndex numBuckets idxA) bucketA' cFilt
+        else writeBucket (toIndex numBuckets idxB) bucketB' cFilt
+    else pure cFilt
+
     where
         fp = makeFingerprint a
-        idxA = primaryIndex a numBuckets
-        idxB = secondaryIndex fp numBuckets idxA
         -- TODO just use Control.Arrow
         matchesFP _ bucket = (fp == getCell bucket 0,
                               fp == getCell bucket 1,

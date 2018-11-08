@@ -30,7 +30,7 @@ dependencies:
 library:
     source-dirs: src
     default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses
-        FunctionalDependencies FlexibleContexts
+        FunctionalDependencies FlexibleContexts FlexibleInstances
     exported-modules:
         Data.CuckooFilter,
         Data.CuckooFilter.Internal,

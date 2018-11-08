@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 92339d5754c281bcb1cc23f8bd74de0535cfb1b6c8cee0b9ea282bef6b63b2cb
+-- hash: 3863c32dd79765bb7e4c4a62f7cbd1c47f41c42a9db631b72b7be8023c07bdfa
 
 name:           cuckoo-filter
 version:        0.1.0.2
@@ -38,7 +38,7 @@ library
       Paths_cuckoo_filter
   hs-source-dirs:
       src
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses FunctionalDependencies FlexibleContexts
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses FunctionalDependencies FlexibleContexts FlexibleInstances
   ghc-options: -O2
   build-depends:
       aeson
