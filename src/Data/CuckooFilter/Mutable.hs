@@ -55,8 +55,7 @@ instance CuckooFilter MFilter IO where
 
     {-# INLINE writeBucket #-}
     writeBucket index (B val) filt = do
-        let f arr = A.writeArray arr index val >> pure arr
-        modifyMVar_ (buckets filt) f
+        modifyMVar_ (buckets filt) (\arr -> A.writeArray arr index val >> pure arr)
         pure filt
 
     {-# INLINE readBucket #-}

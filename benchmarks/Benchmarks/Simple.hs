@@ -1,5 +1,6 @@
 module Benchmarks.Simple (
     stdInBenchmark,
+    stdInMutableBenchmark,
     tenPctPacked,
     fiftyPctPacked,
     ninetyPctPacked
@@ -22,6 +23,25 @@ stdInBenchmark = do
     print s
     filt' <- pure $ foldM (\ f a -> f `insertIdent` a) filt [1..m]
     print $ (runIdentity . member 1) <$> filt'
+
+stdInMutableBenchmark :: IO ()
+stdInMutableBenchmark = do
+    [n, m] <- fmap read <$> getArgs
+    let (Just s) = makeSize (fromIntegral n)
+    filt <- initialize s :: IO (MFilter Int)
+    print s
+    filt' <- foldMaybeM (\f a -> f `insert` a) filt [1..m]
+    case filt' of
+        Nothing -> print "Collision occurred. Exiting."
+        Just res -> print =<< member 1 res
+    where
+        foldMaybeM :: (Monad m) => (b -> a -> m (Maybe b)) -> b -> [a] -> m (Maybe b)
+        foldMaybeM f seed [] = pure (Just seed)
+        foldMaybeM f seed (x:xs) = do
+            res <- f seed x
+            case res of
+                Just seed' -> foldMaybeM f seed' xs
+                Nothing -> pure Nothing
 
 tenPctPacked :: Benchmark
 tenPctPacked = bgroup "10% packed" [
