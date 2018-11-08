@@ -4,6 +4,7 @@ import Test.Tasty.QuickCheck
 import Test.QuickCheck
 
 import Control.Monad (foldM, replicateM)
+import Data.Functor.Identity (runIdentity)
 import Data.Hashable (Hashable)
 import Data.Maybe (isJust, isNothing)
 import Data.Word
@@ -18,10 +19,10 @@ main = defaultMain tests
 tests :: TestTree
 tests = testGroup "Data.CuckooFilter" [
     -- testProperty "insert x increases load factor" undefined,
-    testProperty "insert x >> delete x is idempotent" $ \s -> let
-        Just f = insert defaultFilter s
-        f' = delete f s
-        in not (member s f')
+    testProperty "insert x >> delete x is idempotent" $ \s -> runIdentity $ do
+        Just f <- insert defaultFilter s
+        f' <- delete f s
+        not <$> member s f'
 
     ,testProperty "inserts into a full filter will fail" $ \s n -> let
         f = insertNTimes (100000 + abs n) s defaultFilter
@@ -29,10 +30,11 @@ tests = testGroup "Data.CuckooFilter" [
 
     ,testCase "delete x on empty == empty" $ let
         (Just s) = makeSize 10
-        in delete (empty s) "Foobar" @=? empty s
+        filt = runIdentity $ initialize s :: Filter String
+        in runIdentity (delete filt "Foobar") @=? filt
 
     ,testProperty "Looking up a non existent value is False" $ \s ->
-        not (member s defaultFilter)
+        not (runIdentity $ member s defaultFilter)
 
     -- the bucket size is hardcoded to 4 based on the recommendations from the paper, hence 8 below
     ,testCase "More than 2b deletes is a noop" $ do
@@ -40,15 +42,15 @@ tests = testGroup "Data.CuckooFilter" [
             g = deleteNTimes 7 "Foobar" f'
             h = deleteNTimes 8 "Foobar" f'
             i = deleteNTimes 90 "Foobar" f'
-        member "Foobar" f' @=? True
-        member "Foobar" g @=? True
-        member "Foobar" h @=? False
-        member "Foobar" i @=? False
+        memberIdent "Foobar" f' @=? True
+        memberIdent "Foobar" g @=? True
+        memberIdent "Foobar" h @=? False
+        memberIdent "Foobar" i @=? False
 
     --
     ,testProperty "insert x >> member x == True" $ \ s -> let
-        Just f = insert defaultFilter s
-        in member s f
+        Just f = runIdentity $ insert defaultFilter s
+        in runIdentity $ member s f
 
     , indexTests
     , bucketTests
@@ -87,7 +89,7 @@ bucketTests = testGroup "Buckets" [
 --
 
 defaultFilter :: Filter String
-defaultFilter = empty s
+defaultFilter = runIdentity $ initialize s
     where
         (Just s) = makeSize 100000
 
@@ -96,8 +98,9 @@ insertNTimes :: Hashable a =>
     -> a
     -> Filter a
     -> Maybe (Filter a)
-insertNTimes n a filt =
-    foldM (const . (`insert` a )) filt [1..n]
+insertNTimes n a filt = let
+    insertIdent x f = runIdentity $ insert f a
+    in foldM (const . insertIdent a) filt [1..n]
 
 
 deleteNTimes :: Hashable a =>
@@ -105,7 +108,15 @@ deleteNTimes :: Hashable a =>
     -> a
     -> Filter a
     -> Filter a
-deleteNTimes n a filt = foldl (const . (`delete` a )) filt [1..n]
+deleteNTimes n a filt = let
+    deleteIdent x f = runIdentity $ delete f x
+    in foldl (const . deleteIdent a) filt [1..n]
+
+memberIdent :: Hashable a =>
+    a
+    -> Filter a
+    -> Bool
+memberIdent a filt = runIdentity $ member a filt
 
 --
 -- Instances

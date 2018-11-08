@@ -4,7 +4,7 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 3863c32dd79765bb7e4c4a62f7cbd1c47f41c42a9db631b72b7be8023c07bdfa
+-- hash: 269c20eeed55aa9c6ac5a781e3b812d34c196e44700431e677a59bdd7fcfed52
 
 name:           cuckoo-filter
 version:        0.1.0.2
@@ -55,6 +55,7 @@ executable benchmarks
       Benchmarks.Simple
   hs-source-dirs:
       benchmarks
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses FunctionalDependencies FlexibleContexts FlexibleInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N -O2
   build-depends:
       aeson
@@ -75,7 +76,7 @@ test-suite cuckoo-filter-test
       Paths_cuckoo_filter
   hs-source-dirs:
       test
-  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
+  default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses FunctionalDependencies FlexibleContexts FlexibleInstances
   ghc-options: -threaded -rtsopts -with-rtsopts=-N
   build-depends:
       QuickCheck

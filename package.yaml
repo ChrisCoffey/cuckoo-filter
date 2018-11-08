@@ -27,10 +27,11 @@ dependencies:
 - aeson
 - array
 
+default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses
+    FunctionalDependencies FlexibleContexts FlexibleInstances
+
 library:
     source-dirs: src
-    default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses
-        FunctionalDependencies FlexibleContexts FlexibleInstances
     exported-modules:
         Data.CuckooFilter,
         Data.CuckooFilter.Internal,
@@ -69,4 +70,3 @@ tests:
         - tasty-quickcheck
         - tasty-hunit
         - QuickCheck
-        default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric
