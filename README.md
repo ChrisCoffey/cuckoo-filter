@@ -1,6 +1,6 @@
 # cuckoo-filter
 
-[![Hackage](https://img.shields.io/badge/Hackage-0.1.0.1-blue.svg)](https://hackage.haskell.org/package/cuckoo-filter)[![Build Status](https://travis-ci.org/ChrisCoffey/cuckoo-filter.svg?branch=master)](https://travis-ci.org/ChrisCoffey/cuckoo-filter)
+[![Hackage](https://img.shields.io/badge/Hackage-0.2.0.0-blue.svg)](https://hackage.haskell.org/package/cuckoo-filter)[![Build Status](https://travis-ci.org/ChrisCoffey/cuckoo-filter.svg?branch=master)](https://travis-ci.org/ChrisCoffey/cuckoo-filter)
 
 Cuckoo filters are a probabilistic data structure used to answer questions like "Have I already seen this user" or "Is this word in the English language?". They're _probabilistic_ because each membership operation has a false positive probability. It guarnatees that there will never be a false negative, but may have a low chance of false positives.
 
