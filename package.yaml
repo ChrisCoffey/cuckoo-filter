@@ -1,5 +1,5 @@
 name:                cuckoo-filter
-version:             0.2.0.0
+version:             0.2.0.1
 github:              "ChrisCoffey/cuckoo-filter"
 license:             MIT
 author:              "Chris Coffey"
@@ -26,6 +26,8 @@ dependencies:
 - cereal
 - aeson
 - array
+- time
+- bytestring
 
 default-extensions: NamedFieldPuns DerivingStrategies ScopedTypeVariables DeriveGeneric MultiParamTypeClasses
     FunctionalDependencies FlexibleContexts FlexibleInstances
@@ -35,7 +37,8 @@ library:
     exported-modules:
         Data.CuckooFilter,
         Data.CuckooFilter.Internal,
-        Data.CuckooFilter.Mutable
+        Data.CuckooFilter.Mutable,
+        Data.CuckooFilter.Pure
     ghc-options:
     - -O2
 
@@ -43,7 +46,8 @@ executables:
     benchmarks:
         main:               Benchmarks.hs
         source-dirs:        benchmarks
-        other-modules:      Benchmarks.Simple
+        other-modules:      Benchmarks.Simple,
+                            Benchmarks.SpellChecker
         ghc-options:
         - -threaded
         - -rtsopts

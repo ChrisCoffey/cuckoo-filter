@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveAnyClass #-}
-
 {-|
 Module      : Data.CuckooFilter.Mutable
 Copyright   : (c) Chris Coffey, 2018
@@ -18,7 +16,6 @@ module Data.CuckooFilter.Mutable (
 
 import Data.CuckooFilter.Internal (CuckooFilter(..), Bucket(..), Size(..), emptyBucket)
 
-import Control.Concurrent.MVar (MVar, newMVar, modifyMVar_, readMVar)
 import Control.Monad.ST (stToIO)
 import Data.Aeson (ToJSON, FromJSON)
 import qualified Data.Array.IO as IOA
@@ -32,7 +29,7 @@ import Numeric.Natural (Natural)
 -- Given a mutable array, can I actually fix a C array & use that?
 
 data MFilter a = MF {
-    buckets :: MVar (IOA.IOUArray Int Word32),
+    buckets :: IOA.IOUArray Int Word32,
     size :: !Size,
     numBuckets :: !Natural
     }
@@ -41,9 +38,8 @@ data MFilter a = MF {
 instance CuckooFilter MFilter IO where
     initialize (Size s) = do
         rawArray <- A.newArray (0::Int, fromIntegral nb) 0
-        safelyLockedUpArray <- newMVar rawArray
         pure MF {
-            buckets = safelyLockedUpArray,
+            buckets = rawArray,
             size = Size s,
             numBuckets = nb
             }
@@ -55,12 +51,11 @@ instance CuckooFilter MFilter IO where
 
     {-# INLINE writeBucket #-}
     writeBucket index (B val) filt = do
-        modifyMVar_ (buckets filt) (\arr -> A.writeArray arr index val >> pure arr)
+        A.writeArray (buckets filt) index val
         pure filt
 
     {-# INLINE readBucket #-}
-    readBucket index filt = do
-        arr <- readMVar $ buckets filt
-        B <$> A.readArray arr index
+    readBucket index filt =
+        B <$> A.readArray (buckets filt)index
 
 

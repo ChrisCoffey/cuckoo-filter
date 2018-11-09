@@ -22,3 +22,43 @@ As you'll find in the criterion results, the pure version of the filter can hand
 
 The current implementation avoids pre-allocating memory for the filter, so the heap usage will incrase linearly with `insert` calls. This obviously helps keep heap usage low for sparse filters, but also means inserts are slower than they would be in a mutable implementation.
 
+
+#### Loading a SpellChecker test
+The following test was run on a laptop, so the absolute numbers are going to vary a ton. The important thing is the relationship between the pure & immutable filter implementations.
+
+The test consists of:
+1. Load the `/usr/share/dict/words` file into memory
+2. Create a filter containing all of the words
+3. Lookup each word in the filter
+
+
+Pure
+```
+500000 cells
+235886 words
+0.078749ss to count words
+0.933969ss to construct filter
+745 insert failures
+0.80465ss to query every element
+```
+
+Mutable
+```
+500000 cells
+235886 words
+0.082926ss to count words
+0.29735ss to construct filter
+582 insert failures
+0.52605ss to query every element
+```
+
+Incredibly unscientific comparison to `bloom-filter` using a vanilla filter
+```
+235886 words
+0.087499ss to count words
+Bloom { 4194304 bits }
+0.464982ss to construct filter
+0.506902ss to query every element
+```
+
+*** Cuckoo Filters report the number of failures, while the Bloom Filter reports how many bits it contains. I'll start capturing size for the mutable Cuckoo Filter soon.
