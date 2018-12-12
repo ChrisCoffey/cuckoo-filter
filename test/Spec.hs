@@ -6,7 +6,7 @@ import Test.QuickCheck
 import Control.Monad (foldM, replicateM)
 import Data.Functor.Identity (runIdentity)
 import Data.Hashable (Hashable)
-import Data.Maybe (isJust, isNothing)
+import Data.Maybe (isJust, isNothing, fromMaybe)
 import Data.Word
 import Numeric.Natural (Natural)
 
@@ -20,7 +20,7 @@ tests :: TestTree
 tests = testGroup "Data.CuckooFilter" [
     -- testProperty "insert x increases load factor" undefined,
     testProperty "insert x >> delete x is idempotent" $ \s -> runIdentity $ do
-        Just f <- insert defaultFilter s
+        f <- fromMaybe defaultFilter <$> insert defaultFilter s
         f' <- delete f s
         not <$> member s f'
 
